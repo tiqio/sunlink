@@ -1,0 +1,125 @@
+package log
+
+import (
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"runtime"
+	"time"
+
+	sf "github.com/samber/slog-formatter"
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+var logger = slog.New(DefaultHandler(slog.LevelInfo))
+
+func SetLogger(l *slog.Logger) {
+	logger = l
+}
+
+func Logger() *slog.Logger {
+	return logger
+}
+
+func Debug(msg string, args ...any) {
+	logger.Debug(msg, args...)
+}
+
+func Info(msg string, args ...any) {
+	logger.Info(msg, args...)
+}
+
+func Warn(msg string, args ...any) {
+	logger.Warn(msg, args...)
+}
+
+func Error(msg string, args ...any) {
+	logger.Error(msg, args...)
+	Stack()
+}
+
+func Stack() {
+	// 获取调用栈的切片
+	stack := make([]byte, 1024)
+	n := runtime.Stack(stack, false) // true 表示获取所有 goroutine 的栈信息
+	fmt.Printf("Current Stack:\n%s", stack[:n])
+	os.Exit(1)
+}
+
+func DefaultHandler(level slog.Level) slog.Handler {
+	cn, _ := time.LoadLocation("Asia/Shanghai")
+	return sf.NewFormatterHandler(sf.TimeFormatter(time.DateTime, time.UTC))(
+		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: level,
+			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+				if a.Key != "time" {
+					return a
+				}
+				newTime := a.Value.Time().In(cn)
+				return slog.Time(a.Key, newTime)
+			},
+		}),
+	)
+}
+
+func JSONHandler(w io.Writer, level slog.Level) slog.Handler {
+	cn, _ := time.LoadLocation("Asia/Shanghai")
+	return sf.NewFormatterHandler(sf.TimeFormatter(time.DateTime, time.UTC))(
+		slog.NewJSONHandler(w, &slog.HandlerOptions{
+			Level: level,
+			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+				if a.Key != "time" {
+					return a
+				}
+				newTime := a.Value.Time().In(cn)
+				return slog.Time(a.Key, newTime)
+			},
+		}),
+	)
+
+}
+
+func TextHandler(w io.Writer, level slog.Level) slog.Handler {
+	cn, _ := time.LoadLocation("Asia/Shanghai")
+	return sf.NewFormatterHandler(sf.TimeFormatter(time.DateTime, time.UTC))(
+		slog.NewTextHandler(w, &slog.HandlerOptions{
+			Level: level,
+			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+				if a.Key != "time" {
+					return a
+				}
+				newTime := a.Value.Time().In(cn)
+				return slog.Time(a.Key, newTime)
+			},
+		}),
+	)
+}
+
+func FileWriter(outputFile string) io.WriteCloser {
+	return &lumberjack.Logger{
+		Filename:   outputFile,
+		MaxSize:    10,
+		MaxAge:     1,
+		MaxBackups: 1,
+		LocalTime:  true,
+	}
+}
+
+func Init(outputFile, level string) {
+	l := slog.LevelInfo
+	switch level {
+	case "debug":
+		l = slog.LevelDebug
+	case "warn":
+		l = slog.LevelWarn
+	case "error":
+		l = slog.LevelError
+	}
+
+	if outputFile != "" {
+		SetLogger(slog.New(TextHandler(FileWriter(outputFile), l)))
+	} else {
+		SetLogger(slog.New(DefaultHandler(l)))
+	}
+}
