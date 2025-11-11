@@ -10,7 +10,7 @@ import (
 	"github.com/tiqio/sunlink/log"
 )
 
-func IsRelay(localConn net.Conn, addr string, timeout time.Duration, f MatchFunc) (err error, isRelay bool) {
+func IsTCPRelay(localConn net.Conn, addr string, timeout time.Duration, f MatchFunc) (err error, isRelay bool) {
 	host, _, _ := net.SplitHostPort(addr)
 	rule := f(host)
 	if rule == HostRuleBlock {
@@ -19,14 +19,14 @@ func IsRelay(localConn net.Conn, addr string, timeout time.Duration, f MatchFunc
 	}
 
 	if rule == HostRuleDirect {
-		return directRelay(localConn, addr, timeout), false
+		return directTCPRelay(localConn, addr, timeout), false
 	}
 
 	log.Info("[TCP_PROXY]", "target", addr)
 	return nil, true
 }
 
-func directRelay(localConn net.Conn, addr string, timeout time.Duration) error {
+func directTCPRelay(localConn net.Conn, addr string, timeout time.Duration) error {
 	log.Info("[TCP_DIRECT]", "target", addr)
 
 	tConn, err := net.DialTimeout("tcp", addr, timeout)

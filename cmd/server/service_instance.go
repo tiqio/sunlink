@@ -21,9 +21,9 @@ type Conf struct {
 
 type ServerInstance struct {
 	Conf
-	tlsConfig        *tls.Config
-	mu               sync.Mutex
-	httpTunnelServer *httptunnel.Server
+	tlsConfig  *tls.Config
+	mu         sync.Mutex
+	HTTPServer *httptunnel.Server
 }
 
 type OptionFunc func(conf *Conf)
@@ -99,7 +99,7 @@ func (si *ServerInstance) MaxConnWaitTimeout() time.Duration {
 func (si *ServerInstance) startHTTPTunnelServer() {
 	server := httptunnel.NewServer(si.HTTPTunnelAddr, si.MaxConnWaitTimeout(), si.tlsConfig.Clone())
 	si.mu.Lock()
-	si.httpTunnelServer = server
+	si.HTTPServer = server
 	si.mu.Unlock()
 
 	go server.Listen()
