@@ -110,7 +110,7 @@ func (ci *ClientInstance) TCPHandle(s *socks5.Server, conn *net.TCPConn, r *sock
 			return err
 		}
 
-		err, isRelay := common.IsTCPRelay(conn, targetAddr, ci.Timeout(), MatchHostRule)
+		err, isRelay := ci.isTCPRelay(conn, targetAddr, ci.Timeout(), MatchHostRule)
 		if err != nil {
 			log.Error("[SOCKS5] failed to judge relay information")
 			return err

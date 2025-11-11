@@ -83,7 +83,7 @@ func (ci *ClientInstance) directUDPRelay(s *socks5.Server, laddr *net.UDPAddr, d
 	}
 
 	// start one local conn pc for uAddr data sending
-	pc, err := net.ListenPacket("udp", "")
+	pc, err := ci.directDialer.ListenPacket("tcp", "")
 	if err != nil {
 		log.Error(logPrefix+" listen packet", "err", err)
 		return err

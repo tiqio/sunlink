@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/coocood/freecache"
@@ -18,6 +17,8 @@ import (
 	utls "github.com/refraction-networking/utls"
 	"github.com/tiqio/sunlink/utils/common"
 	"github.com/txthinking/socks5"
+	"github.com/xjasonlyu/tun2socks/v2/dialer"
+	"go.uber.org/atomic"
 
 	"github.com/tiqio/sunlink/log"
 )
@@ -61,6 +62,9 @@ type ClientInstance struct {
 
 	dnsCache       *freecache.Cache
 	directDNSCache *freecache.Cache
+
+	// used for direct tcp and udp connection
+	directDialer *dialer.Dialer
 }
 
 type OptionFunc func(conf *Conf)
@@ -183,7 +187,7 @@ func (ci *ClientInstance) initHTTPClient() error {
 		defer cancel()
 
 		// mind this, this is not right, must use tun2socks api? (directRelay)
-		tConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ci.ServerAddr, ci.ServerPort), ci.Timeout())
+		tConn, err := ci.directDialer.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", ci.ServerAddr, ci.ServerPort))
 		if err != nil {
 			return nil, err
 		}
@@ -201,6 +205,25 @@ func (ci *ClientInstance) initHTTPClient() error {
 	defer ci.mu.Unlock()
 	ci.HTTPClient = client
 
+	return nil
+}
+
+func (ci *ClientInstance) initDirectDialer() error {
+	_, dev, err := common.SysGatewayAndDevice()
+	if err != nil {
+		log.Error("[INIT] failed to get direct Dialer", "err", err)
+		return err
+	}
+	iface, err := net.InterfaceByName(dev)
+	if err != nil {
+		log.Error("[INIT] failed to get name from dev", "err", err)
+		return err
+	}
+	ci.directDialer = &dialer.Dialer{
+		InterfaceName:  atomic.NewString(dev),
+		InterfaceIndex: atomic.NewInt32(int32(iface.Index)),
+		RoutingMark:    atomic.NewInt32(0),
+	}
 	return nil
 }
 
